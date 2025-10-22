@@ -6,6 +6,8 @@ It automates the resume screening process by comparing uploaded resumes against 
 
 The system combines **AI reasoning**, and **workflow orchestration** — allowing recruiters to automatically extract data, evaluate candidates, and organize results in Airtable.
 
+![n8n Workflow Overview](./workflow.jpg)
+
 ---
 
 ## Watch Project Overview
