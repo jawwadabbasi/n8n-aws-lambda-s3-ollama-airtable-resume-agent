@@ -1,0 +1,572 @@
+{
+  "name": "Resume Job Match",
+  "nodes": [
+    {
+      "parameters": {
+        "operation": "pdf",
+        "binaryPropertyName": "=Resume",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1,
+      "position": [
+        -32,
+        -512
+      ],
+      "id": "151a85e5-a8b5-45ed-b5df-728d504bd36e",
+      "name": "Extract from File"
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "SECRET",
+          "mode": "list",
+          "cachedResultName": "N8N ",
+          "cachedResultUrl": "https://airtable.com/SECRET"
+        },
+        "table": {
+          "__rl": true,
+          "value": "SECRET",
+          "mode": "list",
+          "cachedResultName": "Job Descriptions",
+          "cachedResultUrl": "https://airtable.com/SECRET/SECRET"
+        },
+        "filterByFormula": "=AND(\n  NOT({Position Filled}),\n  {Job Title} = '{{ $(\"Resume form\").item.json[\"Job Title\"] }}'\n)",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [
+        640,
+        -416
+      ],
+      "id": "a06dd87a-d6e1-49d7-9ec5-ffd0184a161d",
+      "name": "Search records",
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "8O5vvyKZL4TZtpKA",
+          "name": "Airtable Personal Access Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://127.0.0.1:11434/api/generate",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"llama3\",\n  \"stream\": false,\n  \"prompt\": \"You are an intelligent HR assistant. Compare the following resume with the given job description and required skills.\\nYour task is to evaluate how well this candidate matches the role and provide structured feedback.\\n\\nThe candidate is applying for the position {{ $json['Job Title'] }}.\\nCompare the resume against this position and fill in recommended_position with the job title if suitable, otherwise suggest a better one.\\n\\nReturn only a JSON object in this exact structure:\\n{\\n  \\\"name\\\": \\\"\\\",\\n  \\\"email\\\": \\\"\\\",\\n  \\\"phone\\\": \\\"\\\",\\n  \\\"match_score\\\": 0-100,\\n  \\\"recommended_position\\\": \\\"\\\",\\n  \\\"fit_summary\\\": \\\"Strong/Moderate/Poor\\\",\\n  \\\"why_good_fit\\\": \\\"\\\",\\n  \\\"why_not_fit\\\": \\\"\\\",\\n  \\\"reasoning\\\": \\\"\\\"\\n}\\n\\nGuidelines:\\n- Extract the candidateâ€™s name, email, and phone number directly from the resume text.\\n- \\\"why_good_fit\\\" should mention specific skills, experience, or education that match the job.\\n- \\\"why_not_fit\\\" should mention missing skills, experience gaps, or mismatched criteria.\\n- \\\"reasoning\\\" should be a short 2â€“3 sentence summary of your overall evaluation.\\n- Be concise and only output valid JSON. No extra text or commentary.\\n\\nResume:\\n{{ JSON.stringify($('Extract from File').item.json.text).replace(/\\\"/g, '\\\\\\\"') }}\\n\\nJob Description:\\n{{ JSON.stringify($json['Job Description']).replace(/\\\"/g, '\\\\\\\"') }}\\n\\nRequired Skills:\\n{{ JSON.stringify($json['Required Skills']).replace(/\\\"/g, '\\\\\\\"') }}.\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        864,
+        -416
+      ],
+      "id": "6fc03414-405f-4f01-8dce-fda5219c7974",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "formTitle": "Upload Resume",
+        "formDescription": "Upload resume",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Resume",
+              "fieldType": "file",
+              "multipleFiles": false,
+              "acceptFileTypes": ".pdf"
+            },
+            {
+              "fieldLabel": "Job Title",
+              "fieldType": "dropdown",
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "Software Developer"
+                  },
+                  {
+                    "option": "AI Developer"
+                  },
+                  {
+                    "option": "Graphic Designer"
+                  },
+                  {
+                    "option": "UI/UX Designer"
+                  },
+                  {
+                    "option": "Project Manager"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.3,
+      "position": [
+        -480,
+        -416
+      ],
+      "id": "c3e5219a-a6fd-42dd-83a8-fe911f179281",
+      "name": "Resume form",
+      "webhookId": "9a9b0912-1689-4f4a-8ecf-0f18ca5a1421"
+    },
+    {
+      "parameters": {
+        "operation": "upload",
+        "bucketName": "test-bucket-name",
+        "fileName": "={{ $('Resume form').item.json.Resume.filename }}",
+        "binaryPropertyName": "Resume",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.awsS3",
+      "typeVersion": 2,
+      "position": [
+        -256,
+        -320
+      ],
+      "id": "9fac6b77-4335-42be-b564-9e8c29f1cb62",
+      "name": "Store resume",
+      "credentials": {
+        "aws": {
+          "id": "SECRET",
+          "name": "AWS account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "function": "arn:aws:lambda:us-east-1:SECRET:function:s3-presign",
+        "payload": "={ \"key\": \"{{ $('Resume form').item.json.Resume.filename }}\", \"method\": \"GET\" }"
+      },
+      "type": "n8n-nodes-base.awsLambda",
+      "typeVersion": 1,
+      "position": [
+        -32,
+        -320
+      ],
+      "id": "9e7e4cdc-78ac-4a12-aab7-bc9cf4a7ed42",
+      "name": "Get presigned url",
+      "credentials": {
+        "aws": {
+          "id": "SECRET",
+          "name": "AWS account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "a7dfecec-104f-491b-b792-051b6cb023f5",
+              "leftValue": "={{ $json.match_score }}",
+              "rightValue": 80,
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1312,
+        -416
+      ],
+      "id": "40bd1cb9-c88e-4ba1-8345-57f450be8e23",
+      "name": "Check score"
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "base": {
+          "__rl": true,
+          "value": "SECRET",
+          "mode": "list",
+          "cachedResultName": "N8N ",
+          "cachedResultUrl": "https://airtable.com/SECRET"
+        },
+        "table": {
+          "__rl": true,
+          "value": "SECRET",
+          "mode": "list",
+          "cachedResultName": "Resumes",
+          "cachedResultUrl": "https://airtable.com/SECRET/SECRET"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Match Score": "={{ $('Extract JSON').item.json.match_score }}",
+            "Name": "={{ $json.name }}",
+            "Email": "={{ $json.email }}",
+            "Phone": "={{ $json.phone }}",
+            "Recommended Position": "={{ $('Extract JSON').item.json.recommended_position }}",
+            "Fit Summary": "={{ $('Extract JSON').item.json.fit_summary }}",
+            "Why Good Fit": "={{ $('Extract JSON').item.json.why_good_fit }}",
+            "Why Not Fit": "={{ $('Extract JSON').item.json.why_not_fit }}",
+            "Reasoning": "={{ $('Extract JSON').item.json.reasoning }}",
+            "Resume Text": "={{ $('Extract from File').item.json.text }}",
+            "Linked Job Description": "=[\"{{ $('Search records').item.json.id }}\"]",
+            "Attachments": "=[\n  { \"url\": \"{{ $json.result.body.presigned_url }}\" }\n]"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Name",
+              "displayName": "Name",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Email",
+              "displayName": "Email",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Phone",
+              "displayName": "Phone",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Match Score",
+              "displayName": "Match Score",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Recommended Position",
+              "displayName": "Recommended Position",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Fit Summary",
+              "displayName": "Fit Summary",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "options",
+              "options": [
+                {
+                  "name": "Strong",
+                  "value": "Strong"
+                },
+                {
+                  "name": "Moderate",
+                  "value": "Moderate"
+                },
+                {
+                  "name": "Poor",
+                  "value": "Poor"
+                }
+              ],
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Why Good Fit",
+              "displayName": "Why Good Fit",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Why Not Fit",
+              "displayName": "Why Not Fit",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Reasoning",
+              "displayName": "Reasoning",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Resume Text",
+              "displayName": "Resume Text",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Linked Job Description",
+              "displayName": "Linked Job Description",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "array",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Attachments",
+              "displayName": "Attachments",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "array",
+              "readOnly": false,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [
+        1600,
+        -432
+      ],
+      "id": "5e26555f-9d4b-44e4-88ac-ce6b3ac2ded5",
+      "name": "Add resume to pool",
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "8O5vvyKZL4TZtpKA",
+          "name": "Airtable Personal Access Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        416,
+        -416
+      ],
+      "id": "d15a56ce-38bc-46ca-951c-20a7a497929a",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "language": "python",
+        "pythonCode": "import json\nimport re\n\nitem = items[0]\nresponse_text = item[\"json\"].get(\"response\", \"\").strip()\n\n# Try to extract the JSON block from Markdown fences\nmatch = re.search(r'```(?:json)?\\s*({[\\s\\S]*?})\\s*```', response_text)\n\nif match:\n    cleaned_json = match.group(1)\nelse:\n    # Fallback: try to find first { ... } block if no ```json``` present\n    match_brace = re.search(r'({[\\s\\S]*})', response_text)\n    cleaned_json = match_brace.group(1) if match_brace else \"{}\"\n\ntry:\n    parsed = json.loads(cleaned_json)\nexcept json.JSONDecodeError:\n    # Handle double-encoded JSON\n    parsed = json.loads(json.loads(f'\"{cleaned_json}\"'))\nexcept Exception as e:\n    parsed = {\n        \"error\": f\"Failed to parse Ollama response: {str(e)}\",\n        \"raw_response\": response_text,\n        \"cleaned_json_attempt\": cleaned_json\n    }\n\nreturn [{\"json\": parsed}]"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1088,
+        -416
+      ],
+      "id": "e14bcfe0-7984-41c4-9506-6159ea8bfd44",
+      "name": "Extract JSON",
+      "alwaysOutputData": false
+    },
+    {
+      "parameters": {
+        "language": "python",
+        "pythonCode": "import os\nimport boto3\n\n# Read config from environment variables (set these in n8n)\nregion = os.getenv(\"AWS_REGION\", \"us-east-1\")\nbucket = os.getenv(\"BUCKET\", \"test-bucket-name\")\nexpiry = int(os.getenv(\"EXPIRY_SECONDS\", \"3600\"))\n\n# Read input values from the n8n item\nitem = items[0][\"json\"]\n\nkey = item.get(\"key\")\nmethod = (item.get(\"method\") or \"GET\").upper()\ncontent_type = item.get(\"contentType\")\n\nif not key:\n    return [{\"json\": {\"error\": \"Missing key\"}}]\n\ntry:\n    # Create S3 client\n    s3 = boto3.client(\"s3\", region_name=region)\n\n    # Prepare parameters\n    params = {\"Bucket\": bucket, \"Key\": key}\n    if method == \"PUT\" and content_type:\n        params[\"ContentType\"] = content_type\n\n    # Decide operation\n    op = \"put_object\" if method == \"PUT\" else \"get_object\"\n\n    # Generate presigned URL\n    url = s3.generate_presigned_url(\n        ClientMethod=op,\n        Params=params,\n        ExpiresIn=expiry\n    )\n\n    # Return clean JSON to n8n\n    return [{\n        \"json\": {\n            \"presigned_url\": url,\n            \"method\": method,\n            \"bucket\": bucket,\n            \"key\": key,\n            \"expires_in\": expiry\n        }\n    }]\n\nexcept Exception as e:\n    return [{\"json\": {\"error\": str(e)}}]"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -96,
+        48
+      ],
+      "id": "09832f48-23fd-4041-a0cb-5caada5fbf53",
+      "name": "Code in Python (run in n8n)"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Extract from File": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search records": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Extract JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resume form": {
+      "main": [
+        [
+          {
+            "node": "Store resume",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Extract from File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Store resume": {
+      "main": [
+        [
+          {
+            "node": "Get presigned url",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check score": {
+      "main": [
+        [
+          {
+            "node": "Add resume to pool",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Get presigned url": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Search records",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract JSON": {
+      "main": [
+        [
+          {
+            "node": "Check score",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "1304b352-286b-47fa-a97f-6dbfe507ffde",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "SECRET"
+  },
+  "id": "TstzJdv3MUEFnt7F",
+  "tags": []
+}
