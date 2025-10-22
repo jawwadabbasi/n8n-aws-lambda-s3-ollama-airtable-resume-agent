@@ -231,6 +231,8 @@ When setting up this workflow in your own environment, make sure to:
 
 Kodelle Inc. and Jawwad Ahmed Abbasi assume no responsibility for security misconfigurations in user deployments.
 
+---
+
 ### License
 Proprietary License - All Rights Reserved
 © 2025 Jawwad Ahmed Abbasi, Kodelle Inc.
@@ -240,6 +242,8 @@ You may view and learn from the source code for educational or portfolio purpose
 but commercial use, modification, or redistribution requires a paid license or written permission.
 
 For licensing or commercial use inquiries: jawwad@kodelle.com
+
+---
 
 ## Author
 **Jawwad Ahmed Abbasi**  
